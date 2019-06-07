@@ -98,7 +98,7 @@ int init_audio_parameters() {
 	wanted_spec.userdata = nullptr; // 回调时想带进去的参数
 
 	if (SDL_OpenAudio(&wanted_spec, NULL) < 0) {
-		printf("can't open audio.\n");
+		printf_s("can't open audio.\n");
 		return -1;
 	}
 
@@ -146,7 +146,7 @@ int _tmain(int argc, char** argv)
 	}
 	//Init SDL
 	if (SDL_Init(/*SDL_INIT_VIDEO | */SDL_INIT_AUDIO /*| SDL_INIT_TIMER*/)) { //由于这里只需要音频，所以只传入了SDL_INIT_AUDIO
-		printf("Could not initialize SDL - %s\n", SDL_GetError());
+		printf_s("Could not initialize SDL - %s\n", SDL_GetError());
 		return -1;
 	}
 	if (init_audio_parameters() < 0) {
@@ -164,7 +164,7 @@ int _tmain(int argc, char** argv)
 			{
 				if (!(pFrame = av_frame_alloc()))
 				{
-					fprintf(stderr, "Could not allocate audio frame\n");
+					printf_s("Could not allocate audio frame\n");
 					system("pause");
 					exit(1);
 				}
@@ -202,7 +202,7 @@ void decode_audio_packet(AVCodecContext * code_context, AVPacket * pkt, AVFrame 
 	ret = avcodec_send_packet(code_context, pkt);
 	if (ret < 0)
 	{
-		fprintf(stderr, "Error submitting the packet to the decoder\n");
+		printf_s("Error submitting the packet to the decoder\n");
 		system("pause");
 		exit(1);
 	}
@@ -215,7 +215,7 @@ void decode_audio_packet(AVCodecContext * code_context, AVPacket * pkt, AVFrame 
 			return;
 		else if (ret < 0)
 		{
-			fprintf(stderr, "Error during decoding\n");
+			printf_s("Error during decoding\n");
 			system("pause");
 			exit(1);
 		}
