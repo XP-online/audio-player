@@ -14,6 +14,7 @@ extern "C" {
 #include <tchar.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 #define MAX_AUDIO_FRAME_SIZE 192000 // 1 second of 48khz 32bit audio  
 
@@ -42,15 +43,18 @@ void decode_audio_packet(AVCodecContext* dec_ctx, AVPacket* pkt, AVFrame* frame)
 // len：系统希望读取的长度（可以比这个小，但不能给多）
 void sdl_audio_callback(void* udata, Uint8* stream, int len)
 {
-	//SDL 2.0  
+	//SDL 2.0之后的函数。很像memset在这里用来清空指定内存  
 	SDL_memset(stream, 0, len);
 	if (audio_len == 0)
 		return;
-	len = ((Uint32)len > audio_len ? audio_len : len); /*  Mix  as  much  data  as  possible  */
+	len = ((Uint32)len > audio_len ? audio_len : len); //比较剩余未读取的音频数据的长度和所需要的长度。尽最大可能的给予其音频数据
 
-	SDL_MixAudio(stream, audio_pos, len, SDL_MIX_MAXVOLUME);
-	audio_pos += len;
-	audio_len -= len;
+	SDL_MixAudio(stream, audio_pos, len, SDL_MIX_MAXVOLUME); //SDL_MixAudio的作用和memcpy类似，这里将audio_pos的数据传递给stream
+
+	//audio_pos是记录out_buffer（存放我们读取音频数据的缓冲区）当前读取的位置
+	//audio_len是记录out_buffer剩余未读数据的长度
+	audio_pos += len; //audio_pos前进到新的位置
+	audio_len -= len; //audio_len的长度做相应的减少
 }
 
 // 初始化编码器，重采样器所需的各项参数
@@ -88,7 +92,7 @@ int init_audio_parameters() {
 	// 计算出重采样后需要的buffer大小，后期储存转换后的音频数据时用
 	out_buffer_size = av_samples_get_buffer_size(NULL, out_channels, out_nb_samples, out_sample_fmt, 1);
 	out_buffer = (uint8_t*)av_malloc(MAX_AUDIO_FRAME_SIZE * 2);
-	// 设置 SDL播放音频时的参数 
+	// -------------------设置 SDL播放音频时的参数 ---------------------------//
 	wanted_spec.freq = out_sample_rate;//44100;
 	wanted_spec.format = AUDIO_S16SYS;
 	wanted_spec.channels = out_channels;
@@ -97,11 +101,12 @@ int init_audio_parameters() {
 	wanted_spec.callback = sdl_audio_callback; //sdl系统会掉。上面有说明
 	wanted_spec.userdata = nullptr; // 回调时想带进去的参数
 
+	// SDL打开音频播放设备
 	if (SDL_OpenAudio(&wanted_spec, NULL) < 0) {
 		printf_s("can't open audio.\n");
 		return -1;
 	}
-
+	// 暂停/播放音频，参数为0播放音频，非0暂停音频
 	SDL_PauseAudio(0);
 	return 0;
 }
@@ -112,7 +117,7 @@ int _tmain(int argc, char** argv)
 	char filePath[256];
 	strcpy_s(filePath, base_path);
 	strcat_s(filePath, "Let Her Go-J.Fla.aac");
-	//初始化
+	//初始化ffmpeg的组件
 	av_register_all();
 
 	//读取文件头的文件基本信息到pFormateCtx中
@@ -130,7 +135,7 @@ int _tmain(int argc, char** argv)
 	}
 	// 这个函数并不是必须的，只是在这里打印出文件的基本信息
 	av_dump_format(pFormatCtx, 0, filePath, 0);
-
+	// 找到音频流的位置
 	for (unsigned i = 0; i < pFormatCtx->nb_streams; ++i)
 	{
 		if (AVMEDIA_TYPE_AUDIO == pFormatCtx->streams[i]->codecpar->codec_type) {
@@ -138,17 +143,17 @@ int _tmain(int argc, char** argv)
 			continue;
 		}
 	}
-
 	if (-1 == au_stream_index) {
 		printf_s("Can't find audio stream\n");
 		system("pause");
 		return -1;
 	}
-	//Init SDL
+	// 初始化 SDL
 	if (SDL_Init(/*SDL_INIT_VIDEO | */SDL_INIT_AUDIO /*| SDL_INIT_TIMER*/)) { //由于这里只需要音频，所以只传入了SDL_INIT_AUDIO
 		printf_s("Could not initialize SDL - %s\n", SDL_GetError());
 		return -1;
 	}
+	// 初始化音频参数
 	if (init_audio_parameters() < 0) {
 		return -1;
 	}
@@ -174,19 +179,18 @@ int _tmain(int argc, char** argv)
 				decode_audio_packet(audioCodecCtx, &packet, pFrame);
 			}
 
-			//av_frame_free(&pFrame);
 			av_frame_unref(pFrame);
 			av_packet_unref(&packet);
 		}
 	}
 
-	// Close SDL  
+	// 关闭SDL音频播放设备
 	SDL_CloseAudio();
 	SDL_Quit();
-
+	// 释放内存
 	avcodec_parameters_free(&audioCodecParameter);
 	avcodec_free_context(&audioCodecCtx);
-	av_free(pFrame);
+	av_frame_free(&pFrame);
 	swr_free(&au_convert_ctx);
 	av_free(audioCodecCtx);
 	av_free(out_buffer);
@@ -226,8 +230,8 @@ void decode_audio_packet(AVCodecContext * code_context, AVPacket * pkt, AVFrame 
 		while (audio_len > 0) // 在此处等待sdl_audio_callback将之前传递的音频数据播放完再向其中发送新的数据
 			SDL_Delay(1);
 
-		//Set audio buffer (PCM data)  
-		audio_len = out_buffer_size; // Audio buffer length 
+		// 将读取到的数据存入音频缓冲区 
+		audio_len = out_buffer_size; // 记录音频数据的长度
 		audio_pos = (Uint8*)out_buffer;
 	}
 }
