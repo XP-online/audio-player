@@ -69,12 +69,14 @@ int init_audio_parameters() {
 	}
 	// 获取解码器上下文
 	audioCodecCtx = avcodec_alloc_context3(audioCodec);
+	// 根据音频参数配置音频上下文
 	if (avcodec_parameters_to_context(audioCodecCtx, audioCodecParameter) < 0) {
 		printf_s("audio avcodec_parameters_to_context failed\n");
 		return -1;
 	}
 	// 根据上下文配置音频解码器
 	avcodec_open2(audioCodecCtx, audioCodec, nullptr);
+
 	// -------------------设置重采样相关参数-------------------------//
 	uint64_t out_channel_layout = AV_CH_LAYOUT_STEREO; // 双声道输出
 	int out_channels = av_get_channel_layout_nb_channels(out_channel_layout);
@@ -90,19 +92,20 @@ int init_audio_parameters() {
 
 	int out_nb_samples = audioCodecCtx->frame_size;
 	// 计算出重采样后需要的buffer大小，后期储存转换后的音频数据时用
-	out_buffer_size = av_samples_get_buffer_size(NULL, out_channels, out_nb_samples, out_sample_fmt, 1);
+	out_buffer_size = av_samples_get_buffer_size(nullptr, out_channels, out_nb_samples, out_sample_fmt, 1);
 	out_buffer = (uint8_t*)av_malloc(MAX_AUDIO_FRAME_SIZE * 2);
+
 	// -------------------设置 SDL播放音频时的参数 ---------------------------//
 	wanted_spec.freq = out_sample_rate;//44100;
 	wanted_spec.format = AUDIO_S16SYS;
 	wanted_spec.channels = out_channels;
 	wanted_spec.silence = 0;
 	wanted_spec.samples = out_nb_samples;
-	wanted_spec.callback = sdl_audio_callback; //sdl系统会掉。上面有说明
+	wanted_spec.callback = sdl_audio_callback; //sdl系统回调。上面有说明
 	wanted_spec.userdata = nullptr; // 回调时想带进去的参数
 
 	// SDL打开音频播放设备
-	if (SDL_OpenAudio(&wanted_spec, NULL) < 0) {
+	if (SDL_OpenAudio(&wanted_spec, nullptr) < 0) {
 		printf_s("can't open audio.\n");
 		return -1;
 	}
@@ -114,9 +117,9 @@ int init_audio_parameters() {
 int _tmain(int argc, char** argv)
 {
 	char* base_path = SDL_GetBasePath();
-	char filePath[256];
-	strcpy_s(filePath, base_path);
-	strcat_s(filePath, "Let Her Go-J.Fla.aac");
+	char filePath[256] = "D://J.Fla-BillieJean.mp4";
+	//strcpy_s(filePath, base_path);
+	//strcat_s(filePath, "Let Her Go-J.Fla.aac");
 	//初始化ffmpeg的组件
 	av_register_all();
 
@@ -159,7 +162,7 @@ int _tmain(int argc, char** argv)
 	}
 
 	AVPacket packet;
-	AVFrame* pFrame = NULL;
+	AVFrame* pFrame = nullptr;
 	// 开始读取文件中编码后的音频数据，并将读到的数据储存在
 	while (av_read_frame(pFormatCtx, &packet) >= 0)
 	{
