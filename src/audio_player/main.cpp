@@ -116,10 +116,11 @@ int init_audio_parameters() {
 
 int _tmain(int argc, char** argv)
 {
+	// 获取项目中音频文件的地址，这部分可以将filePath换成本地的其他音频路径。
 	char* base_path = SDL_GetBasePath();
-	char filePath[256] = "D://J.Fla-BillieJean.mp4";
-	//strcpy_s(filePath, base_path);
-	//strcat_s(filePath, "Let Her Go-J.Fla.aac");
+	char filePath[256];
+	strcpy_s(filePath, base_path);
+	strcat_s(filePath, "Let Her Go-J.Fla.aac");
 	//初始化ffmpeg的组件
 	av_register_all();
 
